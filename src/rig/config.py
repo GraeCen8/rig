@@ -40,7 +40,7 @@ class SystemEntry:
 
 @dataclass
 class Root:
-    """Parsed representation of a root ``pkg.toml`` and its settings."""
+    """Parsed representation of a root ``rig.toml`` and its settings."""
 
     dir: Path
     manager: str | None
@@ -59,10 +59,10 @@ class Root:
 
     @classmethod
     def load(cls, root_dir: Path, top: bool = True) -> Root:
-        """Load and parse a ``pkg.toml`` from *root_dir*.
+        """Load and parse a ``rig.toml`` from *root_dir*.
 
         Args:
-            root_dir: Directory containing ``pkg.toml``.
+            root_dir: Directory containing ``rig.toml``.
             top: Whether this is the top-level root (only the top root
                 may declare ``[manager]``).
 
@@ -72,17 +72,17 @@ class Root:
         Raises:
             ConfigError: If the manifest is missing or has invalid fields.
         """
-        pkg_toml = root_dir / "pkg.toml"
-        if not pkg_toml.is_file():
-            raise ConfigError(f"{root_dir}: no pkg.toml found")
-        with open(pkg_toml, "rb") as fh:
+        rig_toml = root_dir / "rig.toml"
+        if not rig_toml.is_file():
+            raise ConfigError(f"{root_dir}: no rig.toml found")
+        with open(rig_toml, "rb") as fh:
             data = tomllib.load(fh)
         manager = (data.get("manager") or {}).get("name") or None
         cfg = data.get("config") or {}
         stow = [s for s in cfg.get("stow", [])]
-        mode = cfg.get("mode", "pkg")
-        if mode not in ("pkg", "stow"):
-            raise ConfigError(f"{pkg_toml}: config.mode must be 'pkg' or 'stow', got {mode!r}")
+        mode = cfg.get("mode", "rig")
+        if mode not in ("rig", "stow"):
+            raise ConfigError(f"{rig_toml}: config.mode must be 'rig' or 'stow', got {mode!r}")
         template_vars = dict(cfg.get("vars", {}))
         systems = [
             SystemEntry(
@@ -143,7 +143,7 @@ def roots_in_order(root_dir: Path) -> list[Root]:
         List of Root objects in depth-first, modules-before-parent order.
 
     Raises:
-        ConfigError: If a declared module directory or its ``pkg.toml`` is missing.
+        ConfigError: If a declared module directory or its ``rig.toml`` is missing.
     """
     order: list[Root] = []
 
@@ -152,7 +152,7 @@ def roots_in_order(root_dir: Path) -> list[Root]:
         root.modules = _active_modules(root)
         if not root.top and root.manager:
             print(
-                f"warning: {root.dir}/pkg.toml: [manager] applies only at the top root; ignored",
+                f"warning: {root.dir}/rig.toml: [manager] applies only at the top root; ignored",
                 file=sys.stderr,
             )
         for name in root.modules:
@@ -196,7 +196,7 @@ def all_packages(root_dir: Path, manager: str | None = None) -> list[str]:
     roots = roots_in_order(root_dir)
     # find package manager (string) if not given
     if manager is None:
-        from pkg import pms as pms_mod
+        from rig import pms as pms_mod
 
         mgr = pms_mod.detect(Root.load(root_dir, top=True).manager)
         manager = mgr.name
@@ -310,11 +310,11 @@ def _format_packages_array(
     return f"packages = [\n{inner}\n]"
 
 
-def _edit_packages(pkg_toml: Path, packages: list[str], add: bool) -> tuple[list[str], list[str]]:
-    text = pkg_toml.read_text()
+def _edit_packages(rig_toml: Path, packages: list[str], add: bool) -> tuple[list[str], list[str]]:
+    text = rig_toml.read_text()
     had_newline = text.endswith("\n")
     lines = text.splitlines()
-    with open(pkg_toml, "rb") as fh:
+    with open(rig_toml, "rb") as fh:
         data = tomllib.load(fh)
 
     active_profiles = list((data.get("config") or {}).get("profiles", []))
@@ -355,23 +355,23 @@ def _edit_packages(pkg_toml: Path, packages: list[str], add: bool) -> tuple[list
             for k, line in enumerate(payload.splitlines()):
                 lines.insert(last + 1 + k, line)
 
-    pkg_toml.write_text("\n".join(lines) + ("\n" if had_newline else ""))
+    rig_toml.write_text("\n".join(lines) + ("\n" if had_newline else ""))
     return current, new
 
 
-def add_packages(pkg_toml: Path, packages: list[str]) -> tuple[list[str], list[str]]:
-    """Add *packages* to the unfiltered ``[[system]]`` block in *pkg_toml*.
+def add_packages(rig_toml: Path, packages: list[str]) -> tuple[list[str], list[str]]:
+    """Add *packages* to the unfiltered ``[[system]]`` block in *rig_toml*.
 
     Returns:
         Tuple of (before, after) package lists for the affected block.
     """
-    return _edit_packages(pkg_toml, packages, add=True)
+    return _edit_packages(rig_toml, packages, add=True)
 
 
-def remove_packages(pkg_toml: Path, packages: list[str]) -> tuple[list[str], list[str]]:
-    """Remove *packages* from the matching ``[[system]]`` block in *pkg_toml*.
+def remove_packages(rig_toml: Path, packages: list[str]) -> tuple[list[str], list[str]]:
+    """Remove *packages* from the matching ``[[system]]`` block in *rig_toml*.
 
     Returns:
         Tuple of (before, after) package lists for the affected block.
     """
-    return _edit_packages(pkg_toml, packages, add=False)
+    return _edit_packages(rig_toml, packages, add=False)

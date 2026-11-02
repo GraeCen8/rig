@@ -3,16 +3,16 @@ from pathlib import Path
 
 import pytest
 
-from pkg import config as cfg
+from rig import config as cfg
 
 
 def write_root(tmp_path: Path, text: str, modules: dict[str, str] | None = None) -> Path:
-    (tmp_path / "pkg.toml").write_text(textwrap.dedent(text).lstrip())
+    (tmp_path / "rig.toml").write_text(textwrap.dedent(text).lstrip())
     (tmp_path / "configs").mkdir(exist_ok=True)
     for name, content in (modules or {}).items():
         module = tmp_path / name
         module.mkdir(exist_ok=True)
-        (module / "pkg.toml").write_text(content)
+        (module / "rig.toml").write_text(content)
         (module / "configs").mkdir(exist_ok=True)
     return tmp_path
 
@@ -20,7 +20,7 @@ def write_root(tmp_path: Path, text: str, modules: dict[str, str] | None = None)
 def test_default_mode_is_pkg(tmp_path):
     d = write_root(tmp_path, "[config]\n")
     root = cfg.Root.load(d)
-    assert root.mode == "pkg"
+    assert root.mode == "rig"
     assert root.stow == []
 
 
@@ -233,7 +233,7 @@ def test_add_skips_profile_blocks(tmp_path):
 
 
 def _toml(tmp_path) -> Path:
-    return tmp_path / "pkg.toml"
+    return tmp_path / "rig.toml"
 
 
 def test_add_packages_creates_block(tmp_path):
@@ -324,7 +324,7 @@ def test_remove_from_os_matching_block(monkeypatch, tmp_path):
 
 
 def test_remove_untouched_when_not_declared(monkeypatch, tmp_path):
-    text = '[[system]]\nname = "base"\npackages = ["zsh"]\n[config]\nmode = "pkg"\n'
+    text = '[[system]]\nname = "base"\npackages = ["zsh"]\n[config]\nmode = "rig"\n'
     d = write_root(tmp_path, text)
     before, after = cfg.remove_packages(_toml(d), ["nope"])
     assert (before, after) == ([], [])

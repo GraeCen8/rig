@@ -1,12 +1,12 @@
 # TODO
 
-Backlog and roadmap for `pkg`. Roughly priority-ordered; checked items are done.
+Backlog and roadmap for `rig`. Roughly priority-ordered; checked items are done.
 
 ## v0.x
 
 - [ ] Secrets — age-encrypted dotfiles, decrypted only at apply time.
 - [ ] Parallel package installs for faster sync.
-- [ ] `pkg edit` — open pkg.toml or a config in $EDITOR.
+- [ ] `rig edit` — open rig.toml or a config in $EDITOR.
 
 ## Explicit non-goals (v0)
 

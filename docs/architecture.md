@@ -3,7 +3,7 @@
 ## Module overview
 
 ```
-pkg/
+rig/
 ├── cli.py      — argument parsing, command dispatch, user-facing output
 ├── config.py   — manifest parsing, root/module resolution, package aggregation
 ├── linker.py   — symlink planning, conflict detection, state tracking, apply/prune
@@ -14,7 +14,7 @@ pkg/
 ## Data flow
 
 ```
-pkg.toml
+rig.toml
   │
   ▼
 config.py: Root.load()  →  Root dataclass
@@ -28,14 +28,14 @@ config.py: Root.load()  →  Root dataclass
          ├──► linker.find_conflicts()  →  error list
          ├──► linker.apply()           →  creates symlinks/files
          ├──► linker.prune()           →  removes orphans
-         └──► linker.unlink()          →  removes all pkg-owned links
+         └──► linker.unlink()          →  removes all rig-owned links
 ```
 
 ## Key data structures
 
 ### `Root` (config.py)
 
-Parsed representation of a `pkg.toml`. Contains the directory path, package manager override, config mode, system entries, hooks, git settings, template vars, and ignore patterns.
+Parsed representation of a `rig.toml`. Contains the directory path, package manager override, config mode, system entries, hooks, git settings, template vars, and ignore patterns.
 
 ### `SystemEntry` (config.py)
 
@@ -51,7 +51,7 @@ Abstract base with `check()`, `install()`, `remove()` methods. Concrete backends
 
 ## State file
 
-Lives at `~/.local/state/pkg/links.json`:
+Lives at `~/.local/state/rig/links.json`:
 
 ```json
 {
@@ -64,12 +64,12 @@ Lives at `~/.local/state/pkg/links.json`:
 }
 ```
 
-- `links` tracks symlinks and rendered files pkg created (for `unlink`, `prune`, `status`).
+- `links` tracks symlinks and rendered files rig created (for `unlink`, `prune`, `status`).
 - `installed` tracks the last declared package list (for detecting dropped packages).
 
 ## Sync order
 
-`pkg sync` runs: git pull → package install → symlink/apply → hooks → dropped package review.
+`rig sync` runs: git pull → package install → symlink/apply → hooks → dropped package review.
 
 ## Conflict detection
 

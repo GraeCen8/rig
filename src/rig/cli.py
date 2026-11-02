@@ -1,4 +1,4 @@
-"""Command-line interface and command dispatch for pkg."""
+"""Command-line interface and command dispatch for rig."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from pathlib import Path
 
 import argcomplete
 
-from pkg import __version__, colors, linker
-from pkg import config as cfg
-from pkg import pms as pms_mod
-from pkg.colors import err, out
+from rig import __version__, colors, linker
+from rig import config as cfg
+from rig import pms as pms_mod
+from rig.colors import err, out
 
 
 def _complete_add_packages(ctx, parsed_args, **kwargs):
-    """Complete package names for ``pkg add`` — available but not installed."""
+    """Complete package names for ``rig add`` — available but not installed."""
     try:
         root_dir = find_root(getattr(parsed_args, "root", None))
         manager = get_manager(root_dir)
@@ -30,7 +30,7 @@ def _complete_add_packages(ctx, parsed_args, **kwargs):
 
 
 def _complete_remove_packages(ctx, parsed_args, **kwargs):
-    """Complete package names for ``pkg remove`` — packages declared in the manifest."""
+    """Complete package names for ``rig remove`` — packages declared in the manifest."""
     try:
         root_dir = find_root(getattr(parsed_args, "root", None))
         manager = get_manager(root_dir)
@@ -39,7 +39,7 @@ def _complete_remove_packages(ctx, parsed_args, **kwargs):
         return []
 
 TEMPLATE = """[config]
-mode = "pkg"
+mode = "rig"
 # stow = []       # these configs mirror into $HOME (GNU stow style)
 # mode = "stow"        # make every config stow-style
 
@@ -64,10 +64,10 @@ _LINK_MARKS = {
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build and return the argument parser for the ``pkg`` CLI."""
+    """Build and return the argument parser for the ``rig`` CLI."""
     parser = argparse.ArgumentParser(
-        prog="pkg",
-        description="pkg tool which can it all: system packages & dotfiles",
+        prog="rig",
+        description="one tool for it all: system packages & dotfiles",
     )
     parser.add_argument(
         "--version",
@@ -95,9 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--prune", action="store_true", help="remove orphaned links / rendered files")
 
     sub.add_parser("status", help="show package and link state")
-    sub.add_parser("unlink", help="remove only symlinks pkg created")
+    sub.add_parser("unlink", help="remove only symlinks rig created")
 
-    w = sub.add_parser("watch", help="re-sync when pkg.toml or configs/ changes")
+    w = sub.add_parser("watch", help="re-sync when rig.toml or configs/ changes")
     w.add_argument("-y", "--yes", action="store_true")
     w.add_argument("--interval", type=float, default=2.0, help="poll interval in seconds")
     w.add_argument("--force", action="store_true")
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
         "packages", nargs="+", metavar="NAME", help="package(s) to uninstall + undeclare"
     )
 
-    i = sub.add_parser("init", help="scaffold a root at <dir>: pkg.toml + configs/")
+    i = sub.add_parser("init", help="scaffold a root at <dir>: rig.toml + configs/")
     i.add_argument("target", help="dir to scaffold, e.g. ~/dots or .")
     i.add_argument("--force", action="store_true")
 
@@ -156,26 +156,26 @@ def build_parser() -> argparse.ArgumentParser:
 def find_root(explicit: str | None) -> Path:
     """Resolve the root directory to use for a command.
 
-    Priority: explicit ``-R``/argument > cwd if it has ``pkg.toml`` >
+    Priority: explicit ``-R``/argument > cwd if it has ``rig.toml`` >
     remembered root > default ``~/dots``.
     """
     if explicit:
         d = Path(explicit).expanduser()
         remember = True
-    elif Path("pkg.toml").is_file():
+    elif Path("rig.toml").is_file():
         d = Path.cwd()
         remember = True
     else:
         mem = linker.remembered_root()
-        if mem and (mem / "pkg.toml").is_file():
+        if mem and (mem / "rig.toml").is_file():
             d = mem
             remember = True
         else:
             d = cfg.ROOT_DEFAULT
             remember = False
     d = d.resolve()
-    if not (d / "pkg.toml").is_file():
-        sys.exit(err.red(f"{d}: no pkg.toml found (run `pkg init <dir>` to create one)"))
+    if not (d / "rig.toml").is_file():
+        sys.exit(err.red(f"{d}: no rig.toml found (run `rig init <dir>` to create one)"))
     if remember:
         linker.remember_root(d)
     return d
@@ -297,7 +297,7 @@ def _system_remove(manager: pms_mod.PackageManager, packages: list[str]) -> int:
 
 
 def cmd_diff(args: argparse.Namespace) -> int:
-    """``pkg diff`` — show what sync would do without making changes."""
+    """``rig diff`` — show what sync would do without making changes."""
     root_dir = find_root(args.root)
     home = host()
     manager = get_manager(root_dir)
@@ -433,7 +433,7 @@ def _sync_hooks(roots: list[cfg.Root]) -> int:
 
 
 def cmd_sync(args: argparse.Namespace) -> int:
-    """``pkg sync`` — sync the machine to the manifest.
+    """``rig sync`` — sync the machine to the manifest.
 
     Runs: git pull → package install → symlink apply → hooks → dropped review.
     """
@@ -458,7 +458,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
 
 def _snapshot_mtime(root_dir: Path) -> float:
-    latest = (root_dir / "pkg.toml").stat().st_mtime
+    latest = (root_dir / "rig.toml").stat().st_mtime
     configs = root_dir / "configs"
     if configs.is_dir():
         for p in configs.rglob("*"):
@@ -468,7 +468,7 @@ def _snapshot_mtime(root_dir: Path) -> float:
 
 
 def cmd_watch(args: argparse.Namespace) -> int:
-    """``pkg watch`` — re-run sync when pkg.toml or configs/ changes."""
+    """``rig watch`` — re-run sync when rig.toml or configs/ changes."""
     root_dir = find_root(args.root or getattr(args, "directory", None))
     args.root = str(root_dir)
     args.yes = True
@@ -491,7 +491,7 @@ def cmd_watch(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    """``pkg status`` — show current package install state and link status."""
+    """``rig status`` — show current package install state and link status."""
     root_dir = find_root(args.root)
     home = host()
     manager = get_manager(root_dir)
@@ -516,7 +516,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_unlink(args: argparse.Namespace) -> int:
-    """``pkg unlink`` — remove all symlinks and rendered files pkg created."""
+    """``rig unlink`` — remove all symlinks and rendered files rig created."""
     removed = linker.unlink(host())
     verb = "symlink(s)" if removed == 1 else "symlinks"
     print(f"  {out.green(f'removed {removed} {verb}')}")
@@ -524,30 +524,30 @@ def cmd_unlink(args: argparse.Namespace) -> int:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """``pkg init`` — scaffold a new root directory with ``pkg.toml`` and ``configs/``."""
+    """``rig init`` — scaffold a new root directory with ``rig.toml`` and ``configs/``."""
     d = Path(args.target).expanduser().resolve()
     (d / "configs").mkdir(parents=True, exist_ok=True)
-    pkg_toml = d / "pkg.toml"
-    if pkg_toml.exists() and not args.force:
-        print(f"{pkg_toml}: already exists {out.yellow('(use --force to overwrite)')}")
+    rig_toml = d / "rig.toml"
+    if rig_toml.exists() and not args.force:
+        print(f"{rig_toml}: already exists {out.yellow('(use --force to overwrite)')}")
     else:
-        pkg_toml.write_text(TEMPLATE)
-        print(f"  {out.green('wrote')} {pkg_toml}")
+        rig_toml.write_text(TEMPLATE)
+        print(f"  {out.green('wrote')} {rig_toml}")
     linker.remember_root(d)
     print(f"  layout: {out.cyan(d)}")
     print("          configs/")
-    print("  drop configs into configs/, then run `pkg sync`")
+    print("  drop configs into configs/, then run `rig sync`")
     return 0
 
 
 def _autocommit(root_dir: Path, message: str) -> None:
-    rc = subprocess.run(["git", "-C", str(root_dir), "add", "pkg.toml"], check=False).returncode
+    rc = subprocess.run(["git", "-C", str(root_dir), "add", "rig.toml"], check=False).returncode
     if rc == 0:
         rc = subprocess.run(
             ["git", "-C", str(root_dir), "commit", "-m", message], check=False
         ).returncode
     if rc == 0:
-        print(f"  {out.green('committed')} pkg.toml (git)")
+        print(f"  {out.green('committed')} rig.toml (git)")
     else:
         print(out.yellow(f"  warning: git commit failed: {message}"))
 
@@ -556,18 +556,18 @@ def _manifest_commit(root_dir: Path, changed: list[str], verb: str) -> None:
     if not changed or not (root_dir / ".git").exists():
         return
     if cfg.Root.load(root_dir, top=True).git_autocommit:
-        _autocommit(root_dir, f"pkg: {verb} {', '.join(changed)}")
+        _autocommit(root_dir, f"rig: {verb} {', '.join(changed)}")
     else:
-        print(out.yellow("  hint: pkg.toml changed — commit it in the dots repo"))
+        print(out.yellow("  hint: rig.toml changed — commit it in the dots repo"))
 
 
 def cmd_add(args: argparse.Namespace) -> int:
-    """``pkg add`` — install packages and declare them in the manifest."""
+    """``rig add`` — install packages and declare them in the manifest."""
     root_dir = find_root(args.root)
     manager = get_manager(root_dir)
-    pkg_toml = root_dir / "pkg.toml"
+    rig_toml = root_dir / "rig.toml"
 
-    before, after = cfg.add_packages(pkg_toml, args.packages)
+    before, after = cfg.add_packages(rig_toml, args.packages)
     added = [p for p in args.packages if p in after and p not in before]
     for pkg in added:
         print(f"  {out.cyan('+')} {pkg} (declared in manifest)")
@@ -591,10 +591,10 @@ def cmd_add(args: argparse.Namespace) -> int:
 
 
 def cmd_remove(args: argparse.Namespace) -> int:
-    """``pkg remove`` — uninstall packages and remove them from the manifest."""
+    """``rig remove`` — uninstall packages and remove them from the manifest."""
     root_dir = find_root(args.root)
     manager = get_manager(root_dir)
-    pkg_toml = root_dir / "pkg.toml"
+    rig_toml = root_dir / "rig.toml"
 
     pkgs = [
         cfg.resolve_package_name(p, manager.name, cfg.Root.load(root_dir).pkgs_map)
@@ -612,7 +612,7 @@ def cmd_remove(args: argparse.Namespace) -> int:
         if rc:
             return 1
 
-    before, after = cfg.remove_packages(pkg_toml, args.packages)
+    before, after = cfg.remove_packages(rig_toml, args.packages)
     removed = [p for p in args.packages if p in before and p not in after]
     for pkg in removed:
         print(f"  {out.red('-')} {pkg} (removed from manifest)")
@@ -623,12 +623,12 @@ def cmd_remove(args: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
-    """``pkg search`` — interactive package search with add/remove/print actions."""
-    from pkg import search
+    """``rig search`` — interactive package search with add/remove/print actions."""
+    from rig import search
 
     root_dir = find_root(args.root)
     manager = pms_mod.detect(args.manager)
-    pkg_toml = root_dir / "pkg.toml"
+    rig_toml = root_dir / "rig.toml"
 
     # Get package list
     if args.installed:
@@ -690,7 +690,7 @@ def cmd_search(args: argparse.Namespace) -> int:
             return 1
         print(f"  {out.green(chr(0x2713))} {pkg_name} installed")
         # Declare in manifest
-        before, after = cfg.add_packages(pkg_toml, [pkg_name])
+        before, after = cfg.add_packages(rig_toml, [pkg_name])
         added = [pkg_name] if pkg_name in after and pkg_name not in before else []
         for pkg in added:
             print(f"  {out.cyan('+')} {pkg} (declared in manifest)")
@@ -704,7 +704,7 @@ def cmd_search(args: argparse.Namespace) -> int:
             return 1
         print(f"  {out.red(chr(0x2717))} {pkg_name} removed")
         # Remove from manifest
-        before, after = cfg.remove_packages(pkg_toml, [pkg_name])
+        before, after = cfg.remove_packages(rig_toml, [pkg_name])
         removed = [pkg_name] if pkg_name in before and pkg_name not in after else []
         for pkg in removed:
             print(f"  {out.red('-')} {pkg} (removed from manifest)")
@@ -716,118 +716,118 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 
 _BASH_COMPLETION = """\
-_pkg_completions() {
+_rig_completions() {
     local IFS=$'\\n'
     COMPREPLY=($(COMP_LINE="$COMP_LINE" COMP_POINT="$COMP_POINT" \\
-        _ARGCOMPLETE=1 _ARGCOMPLETE_BASH=1 pkg 2>/dev/null))
+        _ARGCOMPLETE=1 _ARGCOMPLETE_BASH=1 rig 2>/dev/null))
 }
-complete -o default -F _pkg_completions pkg
+complete -o default -F _rig_completions rig
 """
 
 _ZSH_COMPLETION = """\
-#compdef pkg
+#compdef rig
 
-_pkg() {
+_rig() {
     autoload -U bashcompinit
     bashcompinit
-    eval "$(register-python-argcomplete pkg)"
+    eval "$(register-python-argcomplete rig)"
 }
 
-if [[ "$(basename -- ${(%):-%x})" != "_pkg" ]]; then
-    _pkg "$@"
+if [[ "$(basename -- ${(%):-%x})" != "_rig" ]]; then
+    _rig "$@"
 fi
 """
 
 _FISH_COMPLETION = """\
-# Fish completion for pkg
-# Install to ~/.config/fish/completions/pkg.fish
+# Fish completion for rig
+# Install to ~/.config/fish/completions/rig.fish
 
-function __pkg_needs_command
+function __rig_needs_command
     set cmd (commandline -opc)
     test (count $cmd) -eq 1
 end
 
-function __pkg_using_command
+function __rig_using_command
     set cmd (commandline -opc)
     test (count $cmd) -ge 2; and test "$argv[1]" = "$cmd[2]"
 end
 
-function __pkg_installed_packages
-    pkg status --system-only 2>/dev/null | grep 'installed' | awk '{print $2}'
+function __rig_installed_packages
+    rig status --system-only 2>/dev/null | grep 'installed' | awk '{print $2}'
 end
 
-function __pkg_manifest_packages
-    pkg status --system-only 2>/dev/null | awk '{print $2}'
+function __rig_manifest_packages
+    rig status --system-only 2>/dev/null | awk '{print $2}'
 end
 
-function __pkg_configs
-    set root (pkg diff --configs-only 2>/dev/null | head -1 | string match -r 'root: (.+)' | tail -1)
+function __rig_configs
+    set root (rig diff --configs-only 2>/dev/null | head -1 | string match -r 'root: (.+)' | tail -1)
     if test -n "$root"; and test -d "$root/configs"
         ls "$root/configs" 2>/dev/null
     end
 end
 
 # Disable file completions by default
-complete -c pkg -f
+complete -c rig -f
 
 # Subcommands
-complete -c pkg -n __pkg_needs_command -a diff -d 'Show what would change'
-complete -c pkg -n __pkg_needs_command -a plan -d 'Show what would change'
-complete -c pkg -n __pkg_needs_command -a sync -d 'Sync machine to manifest'
-complete -c pkg -n __pkg_needs_command -a status -d 'Show package and link state'
-complete -c pkg -n __pkg_needs_command -a unlink -d 'Remove symlinks pkg created'
-complete -c pkg -n __pkg_needs_command -a watch -d 'Re-sync on file changes'
-complete -c pkg -n __pkg_needs_command -a add -d 'Install and declare packages'
-complete -c pkg -n __pkg_needs_command -a remove -d 'Uninstall and undeclare packages'
-complete -c pkg -n __pkg_needs_command -a init -d 'Scaffold a new root directory'
-complete -c pkg -n __pkg_needs_command -a search -d 'Interactive package search'
-complete -c pkg -n __pkg_needs_command -a completions -d 'Generate shell completions'
+complete -c rig -n __rig_needs_command -a diff -d 'Show what would change'
+complete -c rig -n __rig_needs_command -a plan -d 'Show what would change'
+complete -c rig -n __rig_needs_command -a sync -d 'Sync machine to manifest'
+complete -c rig -n __rig_needs_command -a status -d 'Show package and link state'
+complete -c rig -n __rig_needs_command -a unlink -d 'Remove symlinks rig created'
+complete -c rig -n __rig_needs_command -a watch -d 'Re-sync on file changes'
+complete -c rig -n __rig_needs_command -a add -d 'Install and declare packages'
+complete -c rig -n __rig_needs_command -a remove -d 'Uninstall and undeclare packages'
+complete -c rig -n __rig_needs_command -a init -d 'Scaffold a new root directory'
+complete -c rig -n __rig_needs_command -a search -d 'Interactive package search'
+complete -c rig -n __rig_needs_command -a completions -d 'Generate shell completions'
 
 # Global flags
-complete -c pkg -l version -d 'Show version'
-complete -c pkg -s R -l root -r -d 'Root directory'
+complete -c rig -l version -d 'Show version'
+complete -c rig -s R -l root -r -d 'Root directory'
 
 # diff/plan flags
-complete -c pkg -n '__pkg_using_command diff' -l system-only
-complete -c pkg -n '__pkg_using_command diff' -l configs-only
-complete -c pkg -n '__pkg_using_command diff' -l prune
-complete -c pkg -n '__pkg_using_command plan' -l system-only
-complete -c pkg -n '__pkg_using_command plan' -l configs-only
-complete -c pkg -n '__pkg_using_command plan' -l prune
+complete -c rig -n '__rig_using_command diff' -l system-only
+complete -c rig -n '__rig_using_command diff' -l configs-only
+complete -c rig -n '__rig_using_command diff' -l prune
+complete -c rig -n '__rig_using_command plan' -l system-only
+complete -c rig -n '__rig_using_command plan' -l configs-only
+complete -c rig -n '__rig_using_command plan' -l prune
 
 # sync flags
-complete -c pkg -n '__pkg_using_command sync' -s y -l yes
-complete -c pkg -n '__pkg_using_command sync' -l system-only
-complete -c pkg -n '__pkg_using_command sync' -l configs-only
-complete -c pkg -n '__pkg_using_command sync' -l force
-complete -c pkg -n '__pkg_using_command sync' -l no-git
-complete -c pkg -n '__pkg_using_command sync' -l prune
+complete -c rig -n '__rig_using_command sync' -s y -l yes
+complete -c rig -n '__rig_using_command sync' -l system-only
+complete -c rig -n '__rig_using_command sync' -l configs-only
+complete -c rig -n '__rig_using_command sync' -l force
+complete -c rig -n '__rig_using_command sync' -l no-git
+complete -c rig -n '__rig_using_command sync' -l prune
 
 # watch flags
-complete -c pkg -n '__pkg_using_command watch' -s y -l yes
-complete -c pkg -n '__pkg_using_command watch' -l interval -r
-complete -c pkg -n '__pkg_using_command watch' -l force
-complete -c pkg -n '__pkg_using_command watch' -l no-git
+complete -c rig -n '__rig_using_command watch' -s y -l yes
+complete -c rig -n '__rig_using_command watch' -l interval -r
+complete -c rig -n '__rig_using_command watch' -l force
+complete -c rig -n '__rig_using_command watch' -l no-git
 
 # search flags
-complete -c pkg -n '__pkg_using_command search' -l installed
-complete -c pkg -n '__pkg_using_command search' -l manager -r
+complete -c rig -n '__rig_using_command search' -l installed
+complete -c rig -n '__rig_using_command search' -l manager -r
 
 # init flags
-complete -c pkg -n '__pkg_using_command init' -l force
+complete -c rig -n '__rig_using_command init' -l force
 
 # completions flags
-complete -c pkg -n '__pkg_using_command completions' -l shell -r -a 'bash zsh fish'
-complete -c pkg -n '__pkg_using_command completions' -l install
+complete -c rig -n '__rig_using_command completions' -l shell -r -a 'bash zsh fish'
+complete -c rig -n '__rig_using_command completions' -l install
 
 # add/remove package name completion
-complete -c pkg -n '__pkg_using_command add' -a '(__pkg_installed_packages)' -d 'Package'
-complete -c pkg -n '__pkg_using_command remove' -a '(__pkg_manifest_packages)' -d 'Package'
+complete -c rig -n '__rig_using_command add' -a '(__rig_installed_packages)' -d 'Package'
+complete -c rig -n '__rig_using_command remove' -a '(__rig_manifest_packages)' -d 'Package'
 """
 
 
 def cmd_completions(args: argparse.Namespace) -> int:
-    """``pkg completions`` — generate or install shell completion scripts."""
+    """``rig completions`` — generate or install shell completion scripts."""
     import os
 
     shell = args.shell
@@ -859,18 +859,18 @@ def cmd_completions(args: argparse.Namespace) -> int:
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     if shell == "fish":
-        dest = dest_dir / "pkg.fish"
+        dest = dest_dir / "rig.fish"
     elif shell == "zsh":
-        dest = dest_dir / "_pkg"
+        dest = dest_dir / "_rig"
     else:
-        dest = dest_dir / "pkg"
+        dest = dest_dir / "rig"
 
     dest.write_text(scripts[shell])
     print(f"  {out.green('installed')} {dest}")
     hint = {
-        "bash": "Add to ~/.bashrc:  source ~/.local/share/bash-completion/completions/pkg",
+        "bash": "Add to ~/.bashrc:  source ~/.local/share/bash-completion/completions/rig",
         "zsh": "Add to ~/.zshrc:  fpath+=(~/.local/share/zsh/site-functions) && autoload -Uz compinit && compinit",
-        "fish": "Restart fish or run:  source ~/.config/fish/completions/pkg.fish",
+        "fish": "Restart fish or run:  source ~/.config/fish/completions/rig.fish",
     }
     print(f"  {out.dim(hint[shell])}")
     return 0
@@ -892,7 +892,7 @@ _CMD = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Entry point for the ``pkg`` CLI.  Parses args and dispatches to the subcommand."""
+    """Entry point for the ``rig`` CLI.  Parses args and dispatches to the subcommand."""
     parser = build_parser()
     argcomplete.autocomplete(parser)
     args = parser.parse_args(argv)

@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pkg"
+name = "rig"
 version = "0.5.0"
 description = "Declarative wraparound: symlinks + your system package manager"
 readme = "README.md"
@@ -28,9 +28,9 @@ classifiers = [
 dependencies = ["argcomplete>=3.0"]
 
 [project.urls]
-Homepage = "https://github.com/graecen8/pkg"
-Repository = "https://github.com/graecen8/pkg"
-Changelog = "https://github.com/graecen8/pkg/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/graecen8/rig"
+Repository = "https://github.com/graecen8/rig"
+Changelog = "https://github.com/graecen8/rig/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -40,7 +40,7 @@ dev = [
 ]
 
 [project.scripts]
-pkg = "pkg.cli:main"
+rig = "rig.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

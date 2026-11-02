@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="https://github.com/graecen8/pkg.git"
-REPO_DEFAULT_DIR="pkg-src"
+REPO_URL="https://github.com/graecen8/rig.git"
+REPO_DEFAULT_DIR="rig-src"
 OS=$(uname -s)
 
 case "$OS" in
@@ -13,7 +13,7 @@ case "$OS" in
     ;;
 esac
 
-# If not in a pkg repo, clone it to $REPO_DEFAULT_DIR
+# If not in a rig repo, clone it to $REPO_DEFAULT_DIR
 if [ ! -f pyproject.toml ]; then
   if [ ! -d "$REPO_DEFAULT_DIR" ]; then
     echo "No pyproject.toml found, cloning repo to ./$REPO_DEFAULT_DIR ..."
@@ -51,18 +51,18 @@ pip install -e "."
 # Build zipapp
 rm -rf .stage
 mkdir -p .stage
-cp -r src/pkg .stage/pkg
+cp -r src/rig .stage/rig
 cp -r "$(python3 -c "import argcomplete, pathlib; print(pathlib.Path(argcomplete.__file__).parent)")" .stage/argcomplete
-printf 'from pkg.cli import main\nraise SystemExit(main())\n' > .stage/__main__.py
-.venv/bin/python -m zipapp .stage -o ./pkg -p '/usr/bin/env python3'
+printf 'from rig.cli import main\nraise SystemExit(main())\n' > .stage/__main__.py
+.venv/bin/python -m zipapp .stage -o ./rig -p '/usr/bin/env python3'
 rm -rf .stage
-chmod +x ./pkg
+chmod +x ./rig
 
-echo "Installing pkg to /usr/bin/pkg..."
+echo "Installing rig to /usr/bin/rig..."
 if [ "$(id -u)" -eq 0 ]; then
-  cp ./pkg /usr/bin/pkg
+  cp ./rig /usr/bin/rig
 else
-  sudo cp ./pkg /usr/bin/pkg
+  sudo cp ./rig /usr/bin/rig
 fi
 
-echo "Installation complete! Run 'pkg --help' to verify."
+echo "Installation complete! Run 'rig --help' to verify."

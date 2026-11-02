@@ -1,6 +1,6 @@
-# pkg Documentation
+# rig Documentation
 
-pkg manages packages and configs with a unified, minimal manifest. Quick links:
+rig manages packages and configs with a unified, minimal manifest. Quick links:
 
 - [Features](features.md)
 - [Usage Guide](usage.md)

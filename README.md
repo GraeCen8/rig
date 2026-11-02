@@ -1,6 +1,6 @@
-# pkg
+# rig
 
-pkg manages system packages and application configs with ease using a minimal design for everyday use, cross-distro flexibility, and reproducibility.
+rig manages system packages and application configs with ease using a minimal design for everyday use, cross-distro flexibility, and reproducibility.
 
 - **Blazing fast workflows:** Add, remove, and sync packages and configs with a single command.
 - **Smart mapping:** Switch between whole-dir, file-level (GNU Stow compatible), or templated configs out of the box.
@@ -11,12 +11,12 @@ pkg manages system packages and application configs with ease using a minimal de
 ## Quick start
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/graecen8/pkg/main/install.sh | bash # Install pkg
-pkg init ~/dots      # Scaffold a new root
-pkg add nvim     # Add packages
+curl -fsSL https://raw.githubusercontent.com/graecen8/rig/main/install.sh | bash # Install rig
+rig init ~/dots      # Scaffold a new root
+rig add nvim     # Add packages
 mv ~/.config/nvim ~/dots/configs/nvim    # Add configs
-pkg sync             # Sync everything
-pkg search           # Browse available packages
+rig sync             # Sync everything
+rig search           # Browse available packages
 ```
 
 ## Documentation

@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from pkg.config import ConfigError, host_os, roots_in_order
+from rig.config import ConfigError, host_os, roots_in_order
 
 
 class ConflictError(Exception):
@@ -31,11 +31,11 @@ class LinkItem:
 
 
 def state_dir() -> Path:
-    """Return the ``XDG_STATE_HOME/pkg`` directory, creating it if needed."""
+    """Return the ``XDG_STATE_HOME/rig`` directory, creating it if needed."""
     xdg = os.environ.get("XDG_STATE_HOME")
     if xdg:
-        return Path(xdg) / "pkg"
-    return Path.home() / ".local" / "state" / "pkg"
+        return Path(xdg) / "rig"
+    return Path.home() / ".local" / "state" / "rig"
 
 
 def state_file() -> Path:
@@ -198,12 +198,12 @@ def _plan_one(
     variables: dict,
     ignore: list[str],
 ) -> None:
-    if mode == "pkg":
+    if mode == "rig":
         payload: list[Path] = []
         _scan_stow(cdir, payload)
         if any(p.name.endswith(".tmpl") for p in payload):
             print(
-                f"{cdir}: warning: contains .tmpl files but is in pkg mode "
+                f"{cdir}: warning: contains .tmpl files but is in rig mode "
                 "(whole-dir symlink); use 'stow' mode for templating"
             )
         items.append(LinkItem(home / ".config" / cdir.name, cdir, "dir"))
@@ -233,7 +233,7 @@ def plan(root_dir: Path, home: Path) -> list[LinkItem]:
     LinkItems for each config directory.
 
     Args:
-        root_dir: Path to the root directory containing pkg.toml.
+        root_dir: Path to the root directory containing rig.toml.
         home: Target home directory for symlinks.
 
     Returns:
@@ -366,7 +366,7 @@ def _apply_item(item: LinkItem, home: Path, force: bool, backup_dir: Path) -> bo
             if owned and entry.get("hash") == item.hash:
                 return False
             if not owned and not force:
-                raise ConflictError(f"{target}: diverged from pkg (use --force)")
+                raise ConflictError(f"{target}: diverged from rig (use --force)")
             if not owned:
                 _force_replace(target, backup_dir)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -421,7 +421,7 @@ def apply(items: list[LinkItem], home: Path, force: bool = False) -> list[LinkIt
 
 
 def orphaned(items: list[LinkItem]) -> list[str]:
-    """Return sorted list of target paths owned by pkg but not in *items*."""
+    """Return sorted list of target paths owned by rig but not in *items*."""
     desired = {str(item.target) for item in items}
     owned = []
     for entry in load_state():
@@ -439,7 +439,7 @@ def orphaned(items: list[LinkItem]) -> list[str]:
 def prune(items: list[LinkItem], home: Path) -> tuple[int, list[str]]:
     """Remove orphaned symlinks and rendered files not in *items*.
 
-    Only removes targets still owned by pkg (matching source or hash).
+    Only removes targets still owned by rig (matching source or hash).
 
     Returns:
         Tuple of (count_removed, list_of_notice_strings).
@@ -468,13 +468,13 @@ def prune(items: list[LinkItem], home: Path) -> tuple[int, list[str]]:
             removed += 1
         else:
             kept.append(entry)
-            notices.append(f"{target}: kept (not pkg-owned)")
+            notices.append(f"{target}: kept (not rig-owned)")
     save_state(kept)
     return removed, notices
 
 
 def unlink(home: Path) -> int:
-    """Remove all symlinks and rendered files that pkg owns.  Return count removed."""
+    """Remove all symlinks and rendered files that rig owns.  Return count removed."""
     entries = load_state()
     kept: list[dict] = []
     removed = 0

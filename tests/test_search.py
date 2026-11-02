@@ -1,6 +1,6 @@
 """Tests for interactive package search."""
 
-from pkg import pms, search
+from rig import pms, search
 
 
 class FakeResult:
@@ -235,7 +235,7 @@ def test_fallback_search_filters_by_query():
 
 def test_action_menu_returns_none_for_empty(monkeypatch):
     # Can't test curses UI in test environment, just verify the function exists
-    from pkg.cli import cmd_search
+    from rig.cli import cmd_search
 
     assert callable(cmd_search)
 
@@ -246,6 +246,6 @@ def test_action_menu_returns_none_for_empty(monkeypatch):
 
 
 def test_cmd_search_imports():
-    from pkg.cli import cmd_search
+    from rig.cli import cmd_search
 
     assert callable(cmd_search)

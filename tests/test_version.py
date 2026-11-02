@@ -1,4 +1,4 @@
-from pkg import __version__
+from rig import __version__
 
 
 def test_version():

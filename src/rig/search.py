@@ -123,7 +123,7 @@ def _curses_search(stdscr, packages: list[str], preview_fn=None) -> str | None:
 
         if mode == "search":
             # Title
-            title = " pkg search "
+            title = " rig search "
             stdscr.addnstr(0, 0, title, width, curses.color_pair(2) | curses.A_BOLD)
 
             # Search box

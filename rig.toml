@@ -1,11 +1,11 @@
-# Example pkg.toml with pkgs_map for cross-platform package mapping
+# Example rig.toml with pkgs_map for cross-platform package mapping
 
 [pkgs_map]
 ripgrep = { apt = "ripgrep", pacman = "ripgrep", brew = "rg" }
 bat = { apt = "bat", pacman = "bat", brew = "bat" }
 
 [config]
-mode = "pkg"
+mode = "rig"
 # stow = []
 
 [[system]]

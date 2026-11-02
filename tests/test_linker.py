@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from pkg import linker
+from rig import linker
 
 
 @pytest.fixture(autouse=True)
@@ -13,7 +13,7 @@ def state_home(tmp_path, monkeypatch):
 
 
 def make_root(tmp_path: Path, toml: str, configs: dict[str, dict[str, str]]) -> Path:
-    (tmp_path / "pkg.toml").write_text(toml)
+    (tmp_path / "rig.toml").write_text(toml)
     cfgdir = tmp_path / "configs"
     shutil.rmtree(cfgdir, ignore_errors=True)
     for name, files in configs.items():
@@ -24,7 +24,7 @@ def make_root(tmp_path: Path, toml: str, configs: dict[str, dict[str, str]]) -> 
     return tmp_path
 
 
-def test_pkg_mode_links_whole_dir(tmp_path):
+def test_rig_mode_links_whole_dir(tmp_path):
     root = make_root(tmp_path, "[config]\n", {"nvim": {"init.lua": "x"}})
     home = tmp_path / "home"
     items = linker.plan(root, home)
@@ -145,10 +145,10 @@ def test_template_bad_var_is_error(tmp_path):
     assert "template" in str(excinfo.value)
 
 
-def test_pkg_mode_with_tmpl_warns(tmp_path, capsys):
+def test_rig_mode_with_tmpl_warns(tmp_path, capsys):
     root = make_root(tmp_path, "[config]\n", {"nvim": {"conf.tmpl": "x"}})
     linker.plan(root, tmp_path / "home")
-    assert "pkg mode" in capsys.readouterr().out
+    assert "rig mode" in capsys.readouterr().out
 
 
 def test_prune_removes_orphan(tmp_path, state_home):
@@ -242,7 +242,7 @@ def test_force_replaces_and_backs_up(tmp_path, state_home):
     (home / ".zshrc").write_text("existed")
     linker.apply(linker.plan(root, home), home, force=True)
     assert (home / ".zshrc").read_text() == "new-content"
-    backup = tmp_path / "state" / "pkg" / "backup"
+    backup = tmp_path / "state" / "rig" / "backup"
     assert any(backup.iterdir())  # the replaced file was backed up
 
 

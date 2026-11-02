@@ -4,17 +4,17 @@ A sample workflow:
 
 1. Scaffold a new root (directory):
    ```sh
-   pkg init ~/dots
+   rig init ~/dots
    ```
 2. Add packages:
    ```sh
-   pkg add zsh git nvim
+   rig add zsh git nvim
    ```
 3. Browse available packages:
    ```sh
-   pkg search              # interactive browser
-   pkg search neovim       # pre-filtered search
-   pkg search --installed  # show only manifest packages
+   rig search              # interactive browser
+   rig search neovim       # pre-filtered search
+   rig search --installed  # show only manifest packages
    ```
 4. Add configs:
    ```sh
@@ -23,7 +23,7 @@ A sample workflow:
    ```
 5. Sync everything:
    ```sh
-   pkg sync
+   rig sync
    ```
 
 see [index.md](index.md) for more details on the manifest and configuration.

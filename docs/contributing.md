@@ -3,8 +3,8 @@
 ## Development setup
 
 ```sh
-git clone https://github.com/graecen8/pkg.git
-cd pkg
+git clone https://github.com/graecen8/rig.git
+cd rig
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
@@ -21,7 +21,7 @@ just install
 ```sh
 just test        # or: pytest
 just lint        # or: ruff check
-just build       # self-contained ./pkg zipapp
+just build       # self-contained ./rig zipapp
 ```
 
 ## Code style
@@ -35,7 +35,7 @@ just build       # self-contained ./pkg zipapp
 
 ## Adding a package manager
 
-1. Subclass `PackageManager` in `src/pkg/pms.py`.
+1. Subclass `PackageManager` in `src/rig/pms.py`.
 2. Implement `check()`, `install()`, and `remove()`.
 3. Add the class to `_REGISTRY` and the appropriate family tuple in `_FAMILIES`.
 4. Add tests in `tests/`.

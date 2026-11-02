@@ -5,35 +5,35 @@
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/graecen8/pkg/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/graecen8/rig/main/install.sh | bash
 ```
 
 ## Common commands
 
 ```
-pkg diff [dir]                    # preview what sync would do, no side effects
+rig diff [dir]                    # preview what sync would do, no side effects
                                   #   --prune also shows orphans
-pkg plan                          # alias for diff
-pkg sync [dir]                    # sync machine to manifest: install pkgs, pull
+rig plan                          # alias for diff
+rig sync [dir]                    # sync machine to manifest: install pkgs, pull
                                   #   git roots, symlink configs, prune orphans,
                                   #   run hooks. Pass a dir or use -R to override.
                                   #   --system-only | --configs-only | --force
                                   #   --yes | --prune | --no-git
-pkg watch [dir]                   # re-run sync when pkg.toml or configs/ changes
+rig watch [dir]                   # re-run sync when rig.toml or configs/ changes
                                   #   --interval N  (poll seconds, default 2)
-pkg status                        # show packages and link state
-pkg add <pkgs>                    # install + declare in manifest
-pkg remove <pkgs>                 # uninstall + undeclare from manifest
-pkg unlink                        # remove only symlinks pkg created
-pkg init <dir>                    # scaffold a new root: pkg.toml + configs/
-pkg search [query]                # interactive package browser
+rig status                        # show packages and link state
+rig add <pkgs>                    # install + declare in manifest
+rig remove <pkgs>                 # uninstall + undeclare from manifest
+rig unlink                        # remove only symlinks rig created
+rig init <dir>                    # scaffold a new root: rig.toml + configs/
+rig search [query]                # interactive package browser
                                   #   --installed  show only manifest packages
                                   #   --manager X  force a specific PM
 ```
 
 ## How sync works
 
-`pkg sync` runs in order: git pull → check → install → symlink → hooks.
+`rig sync` runs in order: git pull → check → install → symlink → hooks.
 
 - The system package manager is auto-detected from `/etc/os-release`
 - Each package is installed individually with a spinner; failures are reported per-package.
@@ -44,12 +44,12 @@ pkg search [query]                # interactive package browser
 
 ## Search
 
-`pkg search` opens an interactive browser for system packages:
+`rig search` opens an interactive browser for system packages:
 
 ```sh
-pkg search                  # browse all available packages
-pkg search neovim           # pre-filtered search
-pkg search --installed      # show only packages from your manifest
+rig search                  # browse all available packages
+rig search neovim           # pre-filtered search
+rig search --installed      # show only packages from your manifest
 ```
 
 **Features:**
@@ -60,4 +60,4 @@ pkg search --installed      # show only packages from your manifest
 
 ## Pruning
 
-`sync --prune` and `diff --prune` remove orphaned links previously managed by pkg. Safe, leaves edited/repurposed files alone.
+`sync --prune` and `diff --prune` remove orphaned links previously managed by rig. Safe, leaves edited/repurposed files alone.

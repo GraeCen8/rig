@@ -3,16 +3,16 @@ default:
 
 venv := ".venv"
 
-# Build a self-contained ./pkg executable you can run anywhere
+# Build a self-contained ./rig executable you can run anywhere
 build:
     rm -rf .stage
     mkdir -p .stage
-    cp -r src/pkg .stage/pkg
+    cp -r src/rig .stage/rig
     cp -r $({{venv}}/bin/python -c "import argcomplete, pathlib; print(pathlib.Path(argcomplete.__file__).parent)") .stage/argcomplete
-    printf 'from pkg.cli import main\nraise SystemExit(main())\n' > .stage/__main__.py
-    {{venv}}/bin/python -m zipapp .stage -o ./pkg -p '/usr/bin/env python3'
+    printf 'from rig.cli import main\nraise SystemExit(main())\n' > .stage/__main__.py
+    {{venv}}/bin/python -m zipapp .stage -o ./rig -p '/usr/bin/env python3'
     rm -rf .stage
-    chmod +x ./pkg
+    chmod +x ./rig
 
 # Build a wheel + sdist into dist/ (for publishing)
 dist:
@@ -20,7 +20,7 @@ dist:
 
 # Run the CLI, e.g. `just run --version` or `just run -- plan -R ~/dots`
 run *args="--help": build
-    ./pkg {{args}}
+    ./rig {{args}}
 
 # Run the test suite
 test:
@@ -35,7 +35,7 @@ lint:
 getdeps:
     {{venv}}/bin/pip install -e ".[dev]"
 
-# installs pkg onto the users system into /usr/bin/pkg
+# installs rig onto the users system into /usr/bin/rig
 install:
     just build
-    sudo cp ./pkg /usr/bin/pkg
+    sudo cp ./rig /usr/bin/rig

@@ -1,6 +1,6 @@
 import pytest
 
-from pkg import pms
+from rig import pms
 
 PACKAGE = "zsh"
 

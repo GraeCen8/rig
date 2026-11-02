@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from pkg import cli, linker
-from pkg import config as cfg
+from rig import cli, linker
+from rig import config as cfg
 
 # ---------------------------------------------------------------------------
 # shared helpers
@@ -19,7 +19,7 @@ def state_home(tmp_path, monkeypatch):
 
 
 def _make_root(tmp_path: Path, toml: str, configs: dict | None = None) -> Path:
-    (tmp_path / "pkg.toml").write_text(toml)
+    (tmp_path / "rig.toml").write_text(toml)
     if configs:
         cfgdir = tmp_path / "configs"
         for name, files in configs.items():
@@ -130,19 +130,19 @@ def test_cmd_init_creates_scaffold(tmp_path, state_home):
     rc = cli.cmd_init(args)
     assert rc == 0
     assert (target / "configs").is_dir()
-    assert (target / "pkg.toml").is_file()
-    assert "[config]" in (target / "pkg.toml").read_text()
+    assert (target / "rig.toml").is_file()
+    assert "[config]" in (target / "rig.toml").read_text()
 
 
 def test_cmd_init_existing_no_force(tmp_path, state_home, capsys):
     target = tmp_path / "newroot"
     target.mkdir()
     (target / "configs").mkdir()
-    (target / "pkg.toml").write_text("existing")
+    (target / "rig.toml").write_text("existing")
     args = SimpleNamespace(target=str(target), force=False, root=None)
     rc = cli.cmd_init(args)
     assert rc == 0
-    assert (target / "pkg.toml").read_text() == "existing"
+    assert (target / "rig.toml").read_text() == "existing"
     assert "already exists" in capsys.readouterr().out
 
 
@@ -150,11 +150,11 @@ def test_cmd_init_existing_with_force(tmp_path, state_home):
     target = tmp_path / "newroot"
     target.mkdir()
     (target / "configs").mkdir()
-    (target / "pkg.toml").write_text("old")
+    (target / "rig.toml").write_text("old")
     args = SimpleNamespace(target=str(target), force=True, root=None)
     rc = cli.cmd_init(args)
     assert rc == 0
-    assert "[config]" in (target / "pkg.toml").read_text()
+    assert "[config]" in (target / "rig.toml").read_text()
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +403,7 @@ def test_cmd_add_installs_and_declares(tmp_path, state_home, capsys):
         rc = cli.cmd_add(args)
         assert rc == 0
         assert ("install", ["fd"]) in calls
-        content = (tmp_path / "pkg.toml").read_text()
+        content = (tmp_path / "rig.toml").read_text()
         assert "fd" in content
     finally:
         monkeypatches.undo()
@@ -435,7 +435,7 @@ def test_cmd_remove_uninstalls_and_undeclares(tmp_path, state_home, capsys):
         rc = cli.cmd_remove(args)
         assert rc == 0
         assert ("remove", ["fd"]) in calls
-        content = (tmp_path / "pkg.toml").read_text()
+        content = (tmp_path / "rig.toml").read_text()
         assert "fd" not in content
         assert "zsh" in content
     finally:
@@ -564,7 +564,7 @@ def test_main_no_cmd(capsys):
 
 
 def test_main_config_error(tmp_path, state_home, capsys):
-    (tmp_path / "pkg.toml").write_text('[[system]]\nmodules = ["ghost"]\n')
+    (tmp_path / "rig.toml").write_text('[[system]]\nmodules = ["ghost"]\n')
     (tmp_path / "configs").mkdir()
     monkeypatches = pytest.MonkeyPatch()
     try:
