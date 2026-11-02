@@ -47,7 +47,7 @@ A planned symlink or rendered file. Fields: `target`, `source`, `kind` (`"dir"`,
 
 ### `PackageManager` (pms.py)
 
-Abstract base with `check()`, `install()`, `remove()` methods. Concrete backends: `Apt`, `Pacman`, `Dnf`, `Zypper`, `Apk`, `Brew`. Auto-detection reads `/etc/os-release` on Linux or returns `Brew` on macOS.
+Abstract base with `check()`, `install()`, `remove()` methods. Concrete backends: `Apt`, `Pacman`, `Dnf`, `Xbps`, `Zypper`, `Apk`, `Brew`. Auto-detection reads `/etc/os-release` on Linux or returns `Brew` on macOS.
 
 ## State file
 

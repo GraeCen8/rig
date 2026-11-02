@@ -487,6 +487,90 @@ class Apk(PackageManager):
         return result.stdout
 
 
+class Xbps(PackageManager):
+    """Void Linux ``xbps`` backend."""
+
+    name = "xbps"
+    label = "Void Linux (xbps)"
+
+    @staticmethod
+    def _pkg_from_token(token: str) -> str:
+        """Strip the ``<name>-<version>_<revision>`` suffix from an xbps column."""
+        return token.rsplit("-", 1)[0]
+
+    def check(self, package: str) -> bool:
+        # Without -R, xbps-query only inspects installed packages.
+        return self._quiet("xbps-query", package)
+
+    def install(self, packages: list[str]) -> tuple[int, str]:
+        missing = self.check_many(packages)
+        if not missing:
+            return 0, ""
+        # -S syncs remote repodata before installing; no lazy update needed.
+        rc, error = self._run_captured(self._sudo(["xbps-install", "-S", "-y", *missing]))
+        if rc != 0:
+            return rc, error
+        return self._verify(missing)
+
+    def remove(self, packages: list[str]) -> tuple[int, str]:
+        present = [p for p in packages if self.check(p)]
+        if not present:
+            return 0, ""
+        rc, error = self._run_captured(self._sudo(["xbps-remove", "-y", *present]))
+        if rc != 0:
+            return rc, error
+        remaining = [p for p in present if self.check(p)]
+        if remaining:
+            return 1, f"could not remove: {', '.join(remaining)}"
+        return 0, ""
+
+    def list_available(self) -> list[str]:
+        result = subprocess.run(
+            ["xbps-query", "-Rs", ""],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+        packages = []
+        for line in result.stdout.splitlines():
+            if ":" not in line:
+                continue
+            head = line.split(":", 1)[0].replace("[", " ").replace("]", " ")
+            parts = head.split()
+            if len(parts) >= 2:
+                packages.append(self._pkg_from_token(parts[1]))
+        return packages
+
+    def list_installed(self) -> list[str]:
+        result = subprocess.run(
+            ["xbps-query", "-l"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return []
+        packages = []
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                packages.append(self._pkg_from_token(parts[1]))
+        return packages
+
+    def print_info(self, package: str) -> str:
+        result = subprocess.run(
+            ["xbps-query", "-R", package],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return f"Package '{package}' not found."
+        return result.stdout
+
+
 def _brew() -> str | None:
     """Locate the Homebrew executable on macOS."""
     exe = shutil.which("brew")
@@ -650,7 +734,7 @@ class Flatpak(PackageManager):
         return result.stdout
 
 
-_REGISTRY = (Pacman, Apt, Dnf, Zypper, Apk, Brew, Flatpak)
+_REGISTRY = (Pacman, Apt, Xbps, Dnf, Zypper, Apk, Brew, Flatpak)
 
 _FAMILIES = (
     (("arch", "manjaro", "endeavouros", "garuda", "cachyos"), Pacman),
@@ -658,6 +742,7 @@ _FAMILIES = (
     (("fedora", "rhel", "centos", "rocky", "almalinux", "ol", "nobara"), Dnf),
     (("opensuse", "suse", "sles"), Zypper),
     (("alpine",), Apk),
+    (("void",), Xbps),
 )
 
 

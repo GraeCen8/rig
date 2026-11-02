@@ -15,7 +15,7 @@ class FakeResult:
 def stateful_runner(monkeypatch) -> tuple[list[list[str]], set[str]]:
     calls: list[list[str]] = []
     installed: set[str] = set()
-    _REMOVE_TOKENS = ("-Rns", "remove", "uninstall", "del")
+    _REMOVE_TOKENS = ("-Rns", "remove", "uninstall", "del", "xbps-remove")
 
     def fake_run(cmd: list[str], **kw):
         calls.append(cmd)
@@ -75,6 +75,12 @@ def expect(base: list[str]) -> list[str]:
             None,
             expect(["apk", "add", "--no-interactive", PACKAGE]),
             ["apk", "del", "--no-interactive", PACKAGE],
+        ),
+        (
+            pms.Xbps,
+            None,
+            expect(["xbps-install", "-S", "-y", PACKAGE]),
+            expect(["xbps-remove", "-y", PACKAGE]),
         ),
         (
             pms.Brew,
@@ -212,6 +218,24 @@ def test_detect_linux_opensuse(monkeypatch):
     assert isinstance(result, pms.Zypper)
 
 
+def test_detect_linux_void(monkeypatch):
+    monkeypatch.setattr(pms.Path, "read_text", _mock_os_release("ID=void\n"))
+    monkeypatch.setattr(pms.platform, "system", lambda: "Linux")
+    result = pms.detect()
+    assert isinstance(result, pms.Xbps)
+
+
+def test_detect_linux_id_like_fallback_void(monkeypatch):
+    monkeypatch.setattr(
+        pms.Path,
+        "read_text",
+        _mock_os_release('ID=voidlinux\nID_LIKE="void xbps"\n'),
+    )
+    monkeypatch.setattr(pms.platform, "system", lambda: "Linux")
+    result = pms.detect()
+    assert isinstance(result, pms.Xbps)
+
+
 def test_detect_override_valid(monkeypatch):
     monkeypatch.setattr(pms.platform, "system", lambda: "Linux")
     monkeypatch.setattr(pms.shutil, "which", lambda name: None)
@@ -250,10 +274,52 @@ def test_detect_os_release_missing(monkeypatch):
 
 
 def test_detect_unrecognized_linux(monkeypatch):
-    monkeypatch.setattr(pms.Path, "read_text", _mock_os_release("ID=void\n"))
+    monkeypatch.setattr(pms.Path, "read_text", _mock_os_release("ID=obscureos\n"))
     monkeypatch.setattr(pms.platform, "system", lambda: "Linux")
     with pytest.raises(SystemExit, match="cannot auto-detect"):
         pms.detect()
+
+
+# ---------------------------------------------------------------------------
+# Xbps output parsing
+# ---------------------------------------------------------------------------
+
+
+def test_xbps_pkg_from_token():
+    assert pms.Xbps._pkg_from_token("zsh-5.9_1") == "zsh"
+    assert pms.Xbps._pkg_from_token("lua-language-server-3.7.4_1") == "lua-language-server"
+
+
+def test_xbps_list_installed_parses_names(monkeypatch):
+    monkeypatch.setattr(
+        pms.subprocess,
+        "run",
+        lambda cmd, **kw: FakeResult(
+            0,
+            stdout="ii zsh-5.9_1                    zsh shell\nii lua-language-server-3.7.4_1    lua\n",
+        ),
+    )
+    assert pms.Xbps().list_installed() == ["zsh", "lua-language-server"]
+
+
+def test_xbps_list_available_parses_names(monkeypatch):
+    monkeypatch.setattr(
+        pms.subprocess,
+        "run",
+        lambda cmd, **kw: FakeResult(
+            0, stdout="[-] anacron-2.3_1: run commands\n[ii] xbps-0.59.1_1: Xbps tools\n"
+        ),
+    )
+    assert pms.Xbps().list_available() == ["anacron", "xbps"]
+
+
+def test_xbps_check_uses_local_query():
+    calls = []
+    pm = pms.Xbps()
+    monkey_calls = calls
+    pm._quiet = lambda *cmd: monkey_calls.append(list(cmd)) or True
+    assert pm.check("zsh")
+    assert calls[-1] == ["xbps-query", "zsh"]
 
 
 # ---------------------------------------------------------------------------

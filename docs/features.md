@@ -1,7 +1,7 @@
 # Features
 
 - Declarative state for system packages and symlinks, with one manifest and configs dir
-- Cross-distro: supports apt, pacman (+yay/paru), dnf, zypper, apk, brew, and flatpak
+- Cross-distro: supports apt, pacman (+yay/paru), dnf, xbps, zypper, apk, brew, and flatpak
 - Module system: nestable, with per-OS/profile rules and tree-merge
 - `rig` mode (whole-dir symlink to ~/.config/<name>) or `stow` mode (file-level, GNUs Stow compatible)
 - [Git](configuration.md#git) integration: auto-pull, auto-commit
