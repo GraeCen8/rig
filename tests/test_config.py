@@ -236,6 +236,81 @@ def _toml(tmp_path) -> Path:
     return tmp_path / "rig.toml"
 
 
+def test_add_ignores_header_trailing_comment(tmp_path):
+    # A trailing comment on the header must not make the block invisible
+    text = """
+    [[system]] # my laptop
+    name = "base"
+    packages = ["zsh"]
+    """
+    d = write_root(tmp_path, text)
+    cfg.add_packages(_toml(d), ["fd"])
+    content = _toml(d).read_text()
+    assert content.count("[[system]]") == 1
+    assert 'packages = ["fd", "zsh"]' in content
+    assert "# my laptop" in content
+
+
+def test_add_survives_bracket_in_comment(tmp_path):
+    # A comment containing "]" must not truncate the packages array
+    text = """
+    [[system]]
+    packages = [
+        "zsh",
+        # see [1] for reference
+        "fd",
+    ]
+    """
+    d = write_root(tmp_path, text)
+    cfg.add_packages(_toml(d), ["rg"])
+    content = _toml(d).read_text()
+    assert '"zsh"' in content
+    assert '"fd"' in content
+    assert '"rg"' in content
+    root = cfg.Root.load(d)
+    assert sorted(fd for fd in [p for s in root.systems for p in s.packages]) == ["fd", "rg", "zsh"]
+    assert "# see [1] for reference" in content
+
+
+def test_add_preserves_inline_comments(tmp_path):
+    text = '[[system]]\npackages = [\n    "zsh",  # my shell\n    "fd",\n]\n'
+    d = write_root(tmp_path, text)
+    cfg.add_packages(_toml(d), ["rg"])
+    content = _toml(d).read_text()
+    assert "# my shell" in content
+    root = cfg.Root.load(d)
+    assert sorted(p for s in root.systems for p in s.packages) == ["fd", "rg", "zsh"]
+
+
+def test_comment_after_array_not_absorbed(tmp_path):
+    # A comment belonging to the next key must not be moved into packages
+    text = """
+    [[system]]
+    packages = [
+        "zsh",
+        "fd",
+    ]
+    # modules to sync
+    modules = ["nvim"]
+    """
+    d = write_root(tmp_path, text)
+    cfg.add_packages(_toml(d), ["rg"])
+    content = _toml(d).read_text()
+    assert "# modules to sync" in content
+    assert 'modules = ["nvim"]' in content
+    idx_comment = content.index("# modules to sync")
+    idx_modules = content.index("modules =")
+    assert idx_comment < idx_modules
+
+
+def test_invalid_toml_rejected_untouched(tmp_path):
+    text = '[[system]\npackages = ["zsh"\n'
+    d = write_root(tmp_path, text)
+    with pytest.raises(cfg.ConfigError):
+        cfg.add_packages(_toml(d), ["fd"])
+    assert _toml(d).read_text() == text
+
+
 def test_add_packages_creates_block(tmp_path):
     cfg.add_packages(_toml(write_root(tmp_path, "[config]\n")), ["fd", "zsh"])
     text = _toml(tmp_path).read_text()
@@ -403,9 +478,8 @@ packages = [
     assert "# lsps" in content
     assert '"go"' in content
     assert '"zls"' in content
-    # Comments should still appear between their associated packages,
-    # not be lumped together at the top
-    apps_pos = content.index("# apps")
-    langs_pos = content.index("# langs")
-    lsps_pos = content.index("# lsps")
-    assert apps_pos < langs_pos < lsps_pos
+    # Comments must stay attached to the package they label, even after
+    # the list is resorted alphabetically.
+    assert content.index("# apps") < content.index('"kitty"')
+    assert content.index("# langs") < content.index('"python"')
+    assert content.index("# lsps") < content.index('"pyright"')

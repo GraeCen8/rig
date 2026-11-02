@@ -38,6 +38,7 @@ def _complete_remove_packages(ctx, parsed_args, **kwargs):
     except (cfg.ConfigError, OSError, SystemExit):
         return []
 
+
 TEMPLATE = """[config]
 mode = "rig"
 # stow = []       # these configs mirror into $HOME (GNU stow style)

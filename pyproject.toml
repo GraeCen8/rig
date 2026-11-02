@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Topic :: Utilities",
 ]
-dependencies = ["argcomplete>=3.0"]
+dependencies = ["argcomplete>=3.0", "tomlkit>=0.15"]
 
 [project.urls]
 Homepage = "https://github.com/graecen8/rig"

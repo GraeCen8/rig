@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-import json
+import os
 import platform
+import stat
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import tomlkit
+from tomlkit.items import Null
 
 ROOT_DEFAULT = Path("~/dots").expanduser()
 
@@ -212,15 +217,6 @@ def all_packages(root_dir: Path, manager: str | None = None) -> list[str]:
     return packages
 
 
-def _system_block_ranges(lines: list[str]) -> list[tuple[int, int]]:
-    """Return (start, end) line ranges for each ``[[system]]`` block."""
-    starts = [i for i, line in enumerate(lines) if line.strip() == "[[system]]"]
-    return [
-        (start, starts[k + 1] if k + 1 < len(starts) else len(lines))
-        for k, start in enumerate(starts)
-    ]
-
-
 def _unfiltered_block_index(data: dict) -> int | None:
     """Return the index of the first ``[[system]]`` block with no OS or profile filters."""
     blocks = data.get("system")
@@ -261,101 +257,196 @@ def _remove_block_index(data: dict, packages: list[str], active_profiles: list[s
     return None
 
 
-def _extract_array_comments(lines: list[str], start: int, end: int) -> list[tuple[int, str]]:
-    """Extract comment lines with their positions from within a packages = [...] array range.
+def _parse_document(rig_toml: Path) -> tomlkit.TOMLDocument:
+    """Parse *rig_toml* into a lossless tomlkit document.
 
-    Returns a list of (position, comment) tuples where position is the index
-    among the package items where the comment should be inserted.
+    Unlike a plain ``tomllib`` load, the returned document keeps comments,
+    inline comments, whitespace and key ordering, so editing it and dumping
+    it back preserves the user's formatting.
+
+    Raises:
+        ConfigError: If the manifest cannot be read or is invalid TOML.
     """
-    item_positions = []
-    for i in range(start, end):
-        stripped = lines[i].strip()
-        if stripped.startswith("packages"):
-            # Find the range of items in the array
-            j = i
-            while "]" not in lines[j] and j + 1 < end:
-                j += 1
-            for k in range(i, j + 1):
-                s = lines[k].strip()
-                if s.startswith(('"', "'")):
-                    item_positions.append(k)
-            break
-
-    comments = []
-    for i in range(start, end):
-        stripped = lines[i].strip()
-        if stripped.startswith("#"):
-            pos = sum(1 for p in item_positions if p < i)
-            comments.append((pos, stripped))
-    return comments
+    try:
+        text = rig_toml.read_text(encoding="utf-8")
+    except OSError as e:
+        raise ConfigError(f"{rig_toml}: cannot read manifest: {e}") from e
+    try:
+        return tomlkit.parse(text)
+    except tomlkit.exceptions.ParseError as e:
+        raise ConfigError(f"{rig_toml}: invalid TOML: {e}") from e
 
 
-def _format_packages_array(
-    packages: list[str], comments: list[tuple[int, str]] | None = None
+def _harvest_array_trivia(
+    arr: tomlkit.items.Array | None,
+) -> tuple[list[tuple[str, list[str], str | None]], list[str]]:
+    """Extract comment trivia from a tomlkit array.
+
+    Returns ``(items, trailing)`` where *items* is a list of
+    ``(name, comments_before, inline_comment)`` tuples in declaration order
+    and *trailing* holds comments after the last item (before ``]``).
+    """
+    items: list[tuple[str, list[str], str | None]] = []
+    pending: list[str] = []
+    for group in getattr(arr, "_value", None) or []:
+        comment = str(group.comment).strip() if group.comment else None
+        value = group.value
+        if value is None or isinstance(value, Null):
+            # A standalone comment line, or the whitespace-only final group.
+            if comment:
+                pending.append(comment)
+            continue
+        items.append((str(value), list(pending), comment))
+        pending = []
+    return items, pending
+
+
+def _carry_comments(
+    items: list[tuple[str, list[str], str | None]], surviving: set[str]
+) -> tuple[list[tuple[str, list[str], str | None]], list[str]]:
+    """Re-map comment trivia so no comment is lost when items are removed.
+
+    Standalone comments attached to removed items are carried forward to the
+    next surviving item; inline comments are tied to their package and are
+    dropped with it. Returns the surviving items and any comments left over.
+    """
+    out: list[tuple[str, list[str], str | None]] = []
+    pending: list[str] = []
+    for name, before, inline in items:
+        pending.extend(before)
+        if name not in surviving:
+            continue
+        out.append((name, pending, inline))
+        pending = []
+    return out, pending
+
+
+def _format_packages_value(
+    names: list[str],
+    before: dict[str, list[str]],
+    inline: dict[str, str],
+    trailing: list[str],
 ) -> str:
-    """Format a packages list as single-line or multi-line TOML array.
+    """Render a package list as a TOML array fragment (without ``packages =``).
 
-    Uses multi-line format when there are more than 3 items.
-    Preserves comments from the original array at their original positions.
+    Single-line for at most 3 items when no comments need preserving,
+    multi-line otherwise, with comments kept beside their packages.
     """
-    if len(packages) <= 3:
-        return f"packages = {json.dumps(packages)}"
+    has_comments = any(before.get(n) for n in names) or bool(inline) or bool(trailing)
+    if len(names) <= 3 and not has_comments:
+        return "[" + ", ".join(tomlkit.string(n).as_string() for n in names) + "]"
 
-    items = list(packages)
-    if comments:
-        for offset, (pos, comment) in enumerate(comments):
-            items.insert(pos + offset, comment)
-    indent = "    "
-    inner = "\n".join(f'{indent}"{p}",' if not p.startswith("#") else f"{indent}{p}" for p in items)
-    return f"packages = [\n{inner}\n]"
+    lines: list[str] = []
+    for name in names:
+        lines.extend(f"    {c}" for c in before.get(name, ()))
+        row = f"    {tomlkit.string(name).as_string()},"
+        if name in inline:
+            row += f"  {inline[name]}"
+        lines.append(row)
+    lines.extend(f"    {c}" for c in trailing)
+    return "[\n" + "\n".join(lines) + "\n]"
+
+
+def _packages_array_item(
+    names: list[str],
+    before: dict[str, list[str]],
+    inline: dict[str, str],
+    trailing: list[str],
+) -> tomlkit.items.Array:
+    """Build a native tomlkit Array with *names* and positioned comments.
+
+    The rendered fragment is parsed back with tomlkit so the array carries
+    exactly the trivia (indents, commas, comments) it will be written with.
+    """
+    payload = _format_packages_value(names, before, inline, trailing)
+    return tomlkit.parse(f"packages = {payload}\n")["packages"]
+
+
+def _new_system_block(names: list[str]) -> tomlkit.items.Table:
+    """Build a fresh ``[[system]]`` table named ``base`` with *names*."""
+    table = tomlkit.table()
+    table["name"] = "base"
+    table["packages"] = _packages_array_item(names, {}, {}, [])
+    return table
+
+
+def _atomic_write(rig_toml: Path, content: str) -> None:
+    """Replace *rig_toml* with *content* atomically.
+
+    Writes to a temp file in the same directory, fsyncs it, preserves the
+    original file mode, then renames over the manifest so a crash can never
+    leave a truncated or half-written ``rig.toml``.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=rig_toml.parent, prefix=f".{rig_toml.name}.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp, stat.S_IMODE(rig_toml.stat().st_mode))
+        os.replace(tmp, rig_toml)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def _edit_packages(rig_toml: Path, packages: list[str], add: bool) -> tuple[list[str], list[str]]:
-    text = rig_toml.read_text()
-    had_newline = text.endswith("\n")
-    lines = text.splitlines()
-    with open(rig_toml, "rb") as fh:
-        data = tomllib.load(fh)
+    """Add or remove *packages* in *rig_toml*, preserving comments and style.
 
-    active_profiles = list((data.get("config") or {}).get("profiles", []))
+    The file is parsed once with tomlkit and dumped back losslessly, so
+    unrelated formatting (headers with trailing comments, blank lines,
+    key alignment, other sections) survives untouched. The result is
+    re-validated with ``tomllib`` and written atomically.
+    """
+    doc = _parse_document(rig_toml)
+
+    active_profiles = list((doc.get("config") or {}).get("profiles", []))
     idx = (
-        _unfiltered_block_index(data)
-        if add
-        else _remove_block_index(data, packages, active_profiles)
+        _unfiltered_block_index(doc) if add else _remove_block_index(doc, packages, active_profiles)
     )
-    current = [str(p) for p in data["system"][idx].get("packages", [])] if idx is not None else []
+    blocks = doc.get("system")
+    current = [str(p) for p in blocks[idx].get("packages", [])] if idx is not None else []
     if add:
         new = sorted(set(current) | set(packages))
     else:
         new = sorted(set(current) - set(packages))
+    if new == current:
+        return current, new
 
     if idx is None:
-        if not add or current == new:
+        if not add:
             return current, new
-        if had_newline and lines and lines[-1] != "":
-            lines.append("")
-        lines += ["[[system]]", 'name = "base"', _format_packages_array(new)]
+        if blocks is not None and not isinstance(blocks, list):
+            raise ConfigError(
+                f"{rig_toml}: 'system' must be an array of tables ([[system]]) to add packages"
+            )
+        block = _new_system_block(new)
+        if isinstance(blocks, list):
+            blocks.append(block)
+        else:
+            aot = tomlkit.aot()
+            aot.append(block)
+            doc["system"] = aot
     else:
-        start, end = _system_block_ranges(lines)[idx]
-        existing_comments = _extract_array_comments(lines, start, end)
-        payload = _format_packages_array(new, existing_comments)
-        replaced = False
-        for i in range(start, end):
-            if lines[i].lstrip().startswith("packages"):
-                j = i
-                while "]" not in lines[j] and j + 1 < end:
-                    j += 1
-                lines[i : j + 1] = payload.splitlines()
-                replaced = True
-                break
-        if not replaced:
-            last = end - 1
-            while last > start and lines[last].strip() == "":
-                last -= 1
-            for k, line in enumerate(payload.splitlines()):
-                lines.insert(last + 1 + k, line)
+        block = blocks[idx]
+        arr = block.get("packages")
+        items, trailing = _harvest_array_trivia(arr) if arr is not None else ([], [])
+        survivors, carried = _carry_comments(items, set(new))
+        before: dict[str, list[str]] = {}
+        inline: dict[str, str] = {}
+        for name, cm_before, cm_inline in survivors:
+            before[name] = cm_before
+            if cm_inline:
+                inline[name] = cm_inline
+        block["packages"] = _packages_array_item(new, before, inline, trailing + carried)
 
-    rig_toml.write_text("\n".join(lines) + ("\n" if had_newline else ""))
+    out = tomlkit.dumps(doc)
+    try:
+        tomllib.loads(out)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"{rig_toml}: refusing to write invalid TOML: {e}") from e
+    _atomic_write(rig_toml, out)
     return current, new
 
 
